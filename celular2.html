@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Captura Automática com OCR de Números</title>
+    <title>Captura Automática com OCR de Números, Palavras e Valores Monetários</title>
     <style>
         video, canvas {
             width: 100%;
@@ -20,7 +20,7 @@
 </head>
 <body>
 
-    <h1>Captura Automática de Números e Leitura</h1>
+    <h1>Captura Automática de Números, Palavras e Valores Monetários</h1>
 
     <video id="video" autoplay></video>
     <button id="start">Iniciar Captura Automática</button>
@@ -37,7 +37,6 @@
         const startButton = document.getElementById('start');
         const stopButton = document.getElementById('stop');
 
-        
         // Acessar a câmera do dispositivo
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
@@ -47,27 +46,60 @@
                 console.error("Erro ao acessar a câmera: ", error);
             });
 
-        // Função para capturar a imagem e reconhecer os números
+        // Função para capturar a imagem e reconhecer os números, valores e palavras específicas
         const captureAndRecognize = () => {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            output.textContent = "Imagem capturada. Reconhecendo números...";
+            output.textContent = "Imagem capturada. Reconhecendo números, valores e palavras...";
 
-            Tesseract.recognize(canvas, 'eng', {
-                logger: info => console.log(info),
-                tessedit_char_whitelist: '0123456789'
+            Tesseract.recognize(canvas, 'por', {
+                logger: info => console.log(info)
             }).then(({ data: { text } }) => {
-                const numbers = text.replace(/[^0-9,]/g, ''); // Remove tudo que não é número
-                if (numbers) {
-                    output.textContent = `Números reconhecidos: ${numbers}`;
-                    // Ler os números em voz alta automaticamente
-                    const synth = window.speechSynthesis;
-                    const utterance = new SpeechSynthesisUtterance(`números ${numbers}`);
-                    synth.speak(utterance);
-                } else {
-                    output.textContent = "Nenhum número reconhecido.";
+                // Procurar e capturar os números com vírgulas e também valores monetários "R$"
+                const numbersAndCommas = text.replace(/[^0-9,]/g, ''); // Mantém números e vírgulas
+
+                // Verifica e captura a ocorrência de "R$" junto com os números
+                const monetaryMatch = text.match(/R\$ ?[0-9,.]+/g); // Captura "R$" seguido de números
+                
+                // Procurar palavras "crédito" ou "débito" no texto completo
+                const creditMatch = text.toLowerCase().includes("crédito");
+                const debitMatch = text.toLowerCase().includes("débito");
+
+                let finalOutput = `Números e vírgulas reconhecidos: ${numbersAndCommas}`;
+                
+                // Exibe valores monetários se forem encontrados
+                if (monetaryMatch) {
+                    finalOutput += `\nValores monetários encontrados: ${monetaryMatch.join(', ')}`;
                 }
+
+                // Exibe "crédito" ou "débito" se forem encontrados
+                if (creditMatch) {
+                    finalOutput += "\nPalavra 'Crédito' encontrada.";
+                }
+                if (debitMatch) {
+                    finalOutput += "\nPalavra 'Débito' encontrada.";
+                }
+
+                output.textContent = finalOutput;
+
+                // Montar a string para leitura em voz alta
+                let speakText = `Os números capturados são ${numbersAndCommas}`;
+                if (monetaryMatch) {
+                    speakText += `. Valores monetários encontrados: ${monetaryMatch.join(', ')}`;
+                }
+                if (creditMatch) {
+                    speakText += ". A palavra crédito foi encontrada";
+                }
+                if (debitMatch) {
+                    speakText += ". A palavra débito foi encontrada";
+                }
+
+                // Ler os números, valores monetários e palavras em voz alta automaticamente
+                const synth = window.speechSynthesis;
+                const utterance = new SpeechSynthesisUtterance(speakText);
+                synth.speak(utterance);
+
             }).catch(error => {
                 console.error("Erro no OCR: ", error);
                 output.textContent = "Erro no reconhecimento de números.";
