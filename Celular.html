@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Captura Automática com OCR de Números</title>
+    <style>
+        video, canvas {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px auto;
+            display: block;
+        }
+        #start, #stop {
+            display: block;
+            margin: 20px auto;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+</head>
+<body>
+
+    <h1>Captura Automática de Números e Leitura</h1>
+
+    <video id="video" autoplay></video>
+    <button id="start">Iniciar Captura Automática</button>
+    <button id="stop" disabled>Parar Captura Automática</button>
+    <canvas id="canvas" style="display: none;"></canvas>
+    <p id="output"></p>
+
+    <script>
+        let captureInterval;
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const output = document.getElementById('output');
+        const startButton = document.getElementById('start');
+        const stopButton = document.getElementById('stop');
+
+        
+        // Acessar a câmera do dispositivo
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(error => {
+                console.error("Erro ao acessar a câmera: ", error);
+            });
+
+        // Função para capturar a imagem e reconhecer os números
+        const captureAndRecognize = () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            output.textContent = "Imagem capturada. Reconhecendo números...";
+
+            Tesseract.recognize(canvas, 'eng', {
+                logger: info => console.log(info),
+                tessedit_char_whitelist: '0123456789'
+            }).then(({ data: { text } }) => {
+                const numbers = text.replace(/[^0-9,]/g, ''); // Remove tudo que não é número
+                if (numbers) {
+                    output.textContent = `Números reconhecidos: ${numbers}`;
+                    // Ler os números em voz alta automaticamente
+                    const synth = window.speechSynthesis;
+                    const utterance = new SpeechSynthesisUtterance(`Os números capturados são ${numbers}`);
+                    synth.speak(utterance);
+                } else {
+                    output.textContent = "Nenhum número reconhecido.";
+                }
+            }).catch(error => {
+                console.error("Erro no OCR: ", error);
+                output.textContent = "Erro no reconhecimento de números.";
+            });
+        };
+
+        // Iniciar captura automática a cada 5 segundos
+        startButton.addEventListener('click', () => {
+            output.textContent = "Captura automática iniciada...";
+            captureInterval = setInterval(captureAndRecognize, 5000); // Captura a cada 5 segundos
+            startButton.disabled = true;
+            stopButton.disabled = false;
+        });
+
+        // Parar captura automática
+        stopButton.addEventListener('click', () => {
+            clearInterval(captureInterval);
+            output.textContent = "Captura automática parada.";
+            startButton.disabled = false;
+            stopButton.disabled = true;
+        });
+    </script>
+
+</body>
+</html>
